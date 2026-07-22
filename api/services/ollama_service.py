@@ -55,7 +55,6 @@ def get_model_size_bytes(model_name: str, refresh: bool = False):
         odpowiedz = client.list()
     except Exception:
         return None
-
     lista = getattr(odpowiedz, "models", None)
     if lista is None and isinstance(odpowiedz, dict):
         lista = odpowiedz.get("models", [])

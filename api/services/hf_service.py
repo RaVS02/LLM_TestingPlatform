@@ -15,7 +15,6 @@ def _wybierz_urzadzenie():
         pass
     return -1
 
-
 def _get_pipeline(model_path: str):
     if model_path not in _pipelines_cache:
         device = _wybierz_urzadzenie()

@@ -16,7 +16,6 @@ def load_models(sciezka):
         )
     return pd.read_csv(sciezka)
 
-
 def print_list_models(sciezka):
     """Wczytuje i wyswietla liste modeli z pliku CSV (uzywane w trybie konsolowym)."""
     modele = load_models(sciezka)

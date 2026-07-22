@@ -13,7 +13,6 @@ import subprocess
 
 import psutil
 
-
 def get_ram_info() -> dict:
     vm = psutil.virtual_memory()
     return {"total": vm.total, "available": vm.available}

@@ -86,7 +86,6 @@ def _nan_to_none(value):
         return None
     return value
 
-
 @app.get("/raport")
 def get_raport():
     if not os.path.isfile(RAPORT_PATH):

@@ -33,7 +33,7 @@ llm_vision_tests/
 
 ## Instalacja na każdym komputerze (identyczne kroki laptop/desktop)
 
-1. **Zainstaluj Ollamę:** [ollama.com/download](https://ollama.com/download) — startuje jako usługa w tle automatycznie po instalacji.
+1. **Zainstaluj Ollamę:** [ollama.com/download](https://ollama.com/download) - startuje jako usługa w tle automatycznie po instalacji.
 
 2. **Środowisko Python:**
    ```powershell
