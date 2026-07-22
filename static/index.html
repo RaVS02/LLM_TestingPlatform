@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vision Lab — test modeli LLM</title>
+<style>
+  :root{
+    --bg:#14171c;
+    --surface:#1b1f26;
+    --surface-2:#20252d;
+    --border:#2a2f38;
+    --text:#e4e7eb;
+    --muted:#8a93a3;
+    --accent:#4f8cd1;
+    --accent-dim:#2f4f7a;
+    --warn:#e5484d;
+    --mono: "JetBrains Mono", "SFMono-Regular", Consolas, Menlo, monospace;
+    --sans: -apple-system, "Segoe UI", Inter, Roboto, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:var(--sans); min-height:100vh;
+  }
+  header{
+    padding:20px 28px; border-bottom:1px solid var(--border);
+    display:flex; align-items:baseline; gap:14px;
+  }
+  header .mark{
+    font-family:var(--mono); color:var(--accent); font-size:13px;
+    border:1px solid var(--accent-dim); padding:2px 8px; border-radius:3px;
+  }
+  header h1{ font-size:17px; font-weight:600; margin:0; letter-spacing:.2px;}
+  header .sub{ color:var(--muted); font-size:13px; font-family:var(--mono);}
+
+  .layout{ display:grid; grid-template-columns: 380px 1fr; gap:0; min-height:calc(100vh - 65px);}
+  @media (max-width: 900px){ .layout{ grid-template-columns: 1fr; } }
+
+  .panel{ padding:24px; border-right:1px solid var(--border); }
+  .results-panel{ padding:24px; }
+
+  .field{ margin-bottom:18px; }
+  .field label{
+    display:block; font-family:var(--mono); font-size:11px; letter-spacing:.5px;
+    text-transform:uppercase; color:var(--muted); margin-bottom:6px;
+  }
+  .toggle-row{ display:flex; gap:8px; }
+  .toggle-btn{
+    flex:1; padding:8px; text-align:center; border:1px solid var(--border);
+    background:var(--surface); color:var(--muted); border-radius:4px; cursor:pointer;
+    font-family:var(--mono); font-size:12px;
+  }
+  .toggle-btn.active{ border-color:var(--accent); color:var(--accent); background:#161c30; }
+
+  select, textarea, input[type=number]{
+    width:100%; background:var(--surface); border:1px solid var(--border); color:var(--text);
+    border-radius:4px; padding:9px 10px; font-family:var(--sans); font-size:13px;
+  }
+  textarea{ resize:vertical; min-height:52px; }
+  select:focus, textarea:focus, input:focus{ outline:none; border-color:var(--accent); }
+
+  .params{ display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; }
+  .params .field{ margin-bottom:0; }
+
+  .filebtns{ display:flex; gap:8px; margin-bottom:8px; }
+  .filebtn{
+    flex:1; padding:10px; border:1px dashed var(--border); background:transparent;
+    color:var(--muted); border-radius:4px; cursor:pointer; font-family:var(--mono); font-size:12px;
+  }
+  .filebtn:hover{ border-color:var(--accent); color:var(--accent); }
+  #fileChips{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .chip{
+    font-family:var(--mono); font-size:11px; background:var(--surface-2);
+    border:1px solid var(--border); border-radius:3px; padding:3px 7px; color:var(--muted);
+  }
+  .clear-link{ font-family:var(--mono); font-size:11px; color:var(--warn); cursor:pointer; margin-left:4px; }
+
+  .submit-btn{
+    width:100%; padding:12px; background:var(--accent); color:#0b1210; border:none;
+    border-radius:4px; font-weight:700; font-family:var(--mono); font-size:13px;
+    letter-spacing:.4px; cursor:pointer; margin-top:6px;
+  }
+  .submit-btn:disabled{ background:var(--accent-dim); cursor:progress; }
+
+  .tabs{ display:flex; gap:18px; border-bottom:1px solid var(--border); margin-bottom:18px; }
+  .tab{ padding:8px 2px; color:var(--muted); font-family:var(--mono); font-size:12px; cursor:pointer; border-bottom:2px solid transparent; }
+  .tab.active{ color:var(--accent); border-color:var(--accent); }
+
+  .empty{ color:var(--muted); font-family:var(--mono); font-size:13px; padding:40px 0; text-align:center; border:1px dashed var(--border); border-radius:6px; }
+
+  .result-card{
+    display:grid; grid-template-columns: 96px 1fr; gap:14px; padding:14px;
+    background:var(--surface); border:1px solid var(--border); border-radius:6px; margin-bottom:10px;
+  }
+  .frame{
+    position:relative; width:96px; height:96px; border:1px solid var(--border); border-radius:4px; overflow:hidden;
+    background:var(--surface-2);
+  }
+  .frame::before, .frame::after{
+    content:""; position:absolute; width:10px; height:10px; border:2px solid var(--accent); opacity:.8;
+  }
+  .frame::before{ top:-1px; left:-1px; border-right:none; border-bottom:none; }
+  .frame::after{ bottom:-1px; right:-1px; border-left:none; border-top:none; }
+  .frame img{ width:100%; height:100%; object-fit:cover; }
+  .result-body .fname{ font-family:var(--mono); font-size:12px; color:var(--muted); margin-bottom:4px; }
+  .result-body .opis{ font-size:13.5px; line-height:1.5; }
+  .result-body .err{ color:var(--warn); font-family:var(--mono); font-size:12px; }
+
+  table.hist{ width:100%; border-collapse:collapse; font-size:13px; }
+  table.hist th{ text-align:left; font-family:var(--mono); font-size:11px; text-transform:uppercase; color:var(--muted); border-bottom:1px solid var(--border); padding:8px 6px; white-space:nowrap; }
+  table.hist td{ border-bottom:1px solid var(--border); padding:8px 6px; vertical-align:top; }
+  table.hist td.params-cell{ font-family:var(--mono); font-size:11px; color:var(--muted); white-space:nowrap; }
+  .table-scroll{ overflow-x:auto; border:1px solid var(--border); border-radius:6px; }
+  .table-scroll table{ min-width:900px; }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="mark">◎ VISION LAB</span>
+  <h1>Test modeli LLM do opisu zdjęć</h1>
+  <span class="sub">ollama / huggingface — lokalnie</span>
+</header>
+
+<div class="layout">
+  <div class="panel">
+    <div class="field">
+      <label>Backend</label>
+      <div class="toggle-row">
+        <div class="toggle-btn active" data-backend="ollama">Ollama</div>
+        <div class="toggle-btn" data-backend="hf">HuggingFace</div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Model</label>
+      <select id="modelSelect"></select>
+    </div>
+
+    <div class="field">
+      <label>Prompt systemowy (opcjonalnie)</label>
+      <textarea id="systemPrompt"></textarea>
+    </div>
+
+    <div class="field">
+      <label>Prompt / Twoje uwagi</label>
+      <textarea id="userPrompt">Describe this image in a highly technical and analytical way, keeping it concise</textarea>
+    </div>
+
+    <div class="field">
+      <label>Parametry generowania</label>
+      <div class="params">
+        <div class="field">
+          <label>Temperatura</label>
+          <input type="number" id="temperature" value="0.2" step="0.01" min="0" max="2">
+        </div>
+        <div class="field">
+          <label>Top P</label>
+          <input type="number" id="topP" value="0.40" step="0.05" min="0" max="1">
+        </div>
+        <div class="field">
+          <label>Max tokenów</label>
+          <input type="number" id="maxTokens" value="200" step="10" min="10" max="2000">
+        </div>
+          <div class="params">
+          <div class="field">
+              <label>Rozumowanie</label>
+
+          </div>
+          </div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Zdjęcia</label>
+      <div class="filebtns">
+        <button type="button" class="filebtn" id="btnFiles">+ Wybierz zdjęcia</button>
+        <button type="button" class="filebtn" id="btnFolder">+ Wybierz folder</button>
+      </div>
+      <input type="file" id="filesInput" accept="image/*" multiple hidden>
+      <input type="file" id="folderInput" webkitdirectory multiple hidden>
+      <div id="fileChips"></div>
+    </div>
+    <div class="field">
+
+    </div>
+    <button class="submit-btn" id="submitBtn">Uruchom analizę</button>
+  </div>
+
+  <div class="results-panel">
+    <div class="tabs">
+      <div class="tab active" data-tab="results">Wyniki</div>
+      <div class="tab" data-tab="history">Historia (raport.csv)</div>
+    </div>
+
+    <div id="resultsView">
+      <div class="empty">Wybierz model i zdjęcia, a wyniki pojawią się tutaj.</div>
+    </div>
+
+    <div id="historyView" style="display:none;">
+      <div class="empty">Ładowanie…</div>
+    </div>
+  </div>
+</div>
+
+<script>
+let backend = "ollama";
+let selectedFiles = [];
+
+const modelSelect = document.getElementById("modelSelect");
+const fileChips = document.getElementById("fileChips");
+const resultsView = document.getElementById("resultsView");
+const historyView = document.getElementById("historyView");
+const submitBtn = document.getElementById("submitBtn");
+
+async function loadModels() {
+  modelSelect.innerHTML = "<option>Ładowanie…</option>";
+  try {
+    const res = await fetch(`/models?backend=${backend}`);
+    const data = await res.json();
+    if (!Array.isArray(data) || data.length === 0) {
+      modelSelect.innerHTML = "<option value=''>Brak modeli w konfiguracji</option>";
+      return;
+    }
+    modelSelect.innerHTML = data.map(m =>
+      `<option value="${m.model_id}">${m.model_name} — ${m.size || ""} — ${m.description || ""}</option>`
+    ).join("");
+  } catch (e) {
+    modelSelect.innerHTML = "<option value=''>Błąd ładowania modeli</option>";
+  }
+}
+
+document.querySelectorAll(".toggle-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".toggle-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    backend = btn.dataset.backend;
+    loadModels();
+  });
+});
+
+function renderChips() {
+  fileChips.innerHTML = "";
+  selectedFiles.forEach((f, i) => {
+    const chip = document.createElement("span");
+    chip.className = "chip";
+    chip.textContent = f.name;
+    fileChips.appendChild(chip);
+  });
+  if (selectedFiles.length) {
+    const clear = document.createElement("span");
+    clear.className = "clear-link";
+    clear.textContent = `wyczyść (${selectedFiles.length})`;
+    clear.onclick = () => { selectedFiles = []; renderChips(); };
+    fileChips.appendChild(clear);
+  }
+}
+
+function addFiles(fileList) {
+  const imgs = Array.from(fileList).filter(f => f.type.startsWith("image/"));
+  selectedFiles = selectedFiles.concat(imgs);
+  renderChips();
+}
+
+document.getElementById("btnFiles").onclick = () => document.getElementById("filesInput").click();
+document.getElementById("btnFolder").onclick = () => document.getElementById("folderInput").click();
+document.getElementById("filesInput").onchange = e => addFiles(e.target.files);
+document.getElementById("folderInput").onchange = e => addFiles(e.target.files);
+
+document.querySelectorAll(".tab").forEach(tab => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    tab.classList.add("active");
+    if (tab.dataset.tab === "results") {
+      resultsView.style.display = "block";
+      historyView.style.display = "none";
+    } else {
+      resultsView.style.display = "none";
+      historyView.style.display = "block";
+      loadHistory();
+    }
+  });
+});
+
+async function loadHistory() {
+  historyView.innerHTML = "<div class='empty'>Ładowanie…</div>";
+  try {
+    const res = await fetch("/raport");
+    let data;
+    try {
+      data = await res.json();
+    } catch (parseErr) {
+      historyView.innerHTML = `<div class='empty'>Serwer zwrócił nieoczekiwaną odpowiedź (status ${res.status}). Sprawdź logi kontenera (docker compose logs aplikacja-testowa).</div>`;
+      return;
+    }
+    if (!res.ok) {
+      historyView.innerHTML = `<div class='empty'>Błąd: ${data.detail || res.status}</div>`;
+      return;
+    }
+    if (!Array.isArray(data) || data.length === 0) {
+      historyView.innerHTML = "<div class='empty'>Brak zapisanych wyników — raports/raport.csv jest jeszcze puste.</div>";
+      return;
+    }
+    const rows = data.map(r => `
+      <tr>
+        <td>${r.nazwa_pliku_obrazu ?? ""}</td>
+        <td>${r.nazwa_modelu ?? ""}</td>
+        <td>${r.prompt_systemowy ?? ""}</td>
+        <td>${r.prompt_uzytkownika ?? ""}</td>
+        <td class="params-cell">T: ${r.temperatura ?? "–"}<br>P: ${r.top_p ?? "–"}<br>Tok: ${r.max_tokeny ?? "–"}</td>
+        <td>${r.wygenerowany_opis ?? ""}</td>
+      </tr>`).join("");
+    historyView.innerHTML = `
+      <div class="table-scroll">
+      <table class="hist">
+        <thead><tr><th>Plik</th><th>Model</th><th>Prompt systemowy</th><th>Prompt</th><th>Parametry</th><th>Opis</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      </div>`;
+  } catch (e) {
+    historyView.innerHTML = `<div class='empty'>Błąd połączenia z API: ${e}</div>`;
+  }
+}
+
+submitBtn.addEventListener("click", async () => {
+  if (!selectedFiles.length) { alert("Wybierz co najmniej jedno zdjęcie."); return; }
+  if (!modelSelect.value) { alert("Wybierz model."); return; }
+
+  submitBtn.disabled = true;
+  submitBtn.textContent = "Analizuję…";
+  resultsView.innerHTML = "<div class='empty'>Przetwarzanie — modele wizyjne mogą działać wolno, zwłaszcza sekwencyjnie na wielu zdjęciach.</div>";
+
+  const fd = new FormData();
+  fd.append("backend", backend);
+  fd.append("model_id", modelSelect.value);
+  fd.append("system_prompt", document.getElementById("systemPrompt").value);
+  fd.append("user_prompt", document.getElementById("userPrompt").value);
+  fd.append("temperature", document.getElementById("temperature").value);
+  fd.append("top_p", document.getElementById("topP").value);
+  fd.append("max_tokens", document.getElementById("maxTokens").value);
+  selectedFiles.forEach(f => fd.append("images", f));
+
+  try {
+    const res = await fetch("/generate", { method: "POST", body: fd });
+    const data = await res.json();
+    if (!res.ok) {
+      resultsView.innerHTML = `<div class='empty'>Błąd: ${data.detail || res.status}</div>`;
+      return;
+    }
+    resultsView.innerHTML = data.wyniki.map((w, i) => {
+      const previewUrl = URL.createObjectURL(selectedFiles[i]);
+      return `
+      <div class="result-card">
+        <div class="frame"><img src="${previewUrl}"></div>
+        <div class="result-body">
+          <div class="fname">${w.plik}</div>
+          ${w.blad ? `<div class="err">Błąd: ${w.blad}</div>` : `<div class="opis">${w.opis}</div>`}
+        </div>
+      </div>`;
+    }).join("");
+  } catch (e) {
+    resultsView.innerHTML = `<div class='empty'>Błąd połączenia z API: ${e}</div>`;
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Uruchom analizę";
+  }
+});
+
+loadModels();
+</script>
+</body>
+</html>

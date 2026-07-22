@@ -1,0 +1,17 @@
+# Srodowisko wirtualne Pythona
+.venv/
+venv/
+
+# Cache Pythona
+__pycache__/
+*.pyc
+
+# Wygenerowane w trakcie dzialania - nie commitowac
+raports/*.csv
+uploads/*
+!uploads/.gitkeep
+
+# Edytory / OS
+.vscode/
+.idea/
+Thumbs.db

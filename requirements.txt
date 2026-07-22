@@ -1,0 +1,9 @@
+requests
+transformers
+torch
+pillow
+ollama
+pandas
+fastapi
+uvicorn[standard]
+python-multipart
