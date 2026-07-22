@@ -141,6 +141,13 @@ Pełna dokumentacja (Swagger): `http://localhost:8000/docs`
 
 **Wykrywanie capabilities (Ollama):** UI pokazuje przy kazdym modelu skrot capabilities w nawiasach kwadratowych (np. `[VC]` = vision + completion, `[CT]` = completion + tools, `[CTh]` = completion + thinking). Jesli wybierzesz model bez `vision` i podepniesz zdjecie, appka poprosi o potwierdzenie zanim wyśle zapytanie (bo najprawdopodobniej zwroci blad/pusta odpowiedz).
 
+**Wykrywanie RAM/VRAM + flagowanie ryzyka (`api/services/system_service.py`):**
+- `GET /system/resources` — aktualny wolny/calkowity RAM (przez `psutil`) i VRAM (przez `nvidia-smi`, jesli GPU to NVIDIA; brak `nvidia-smi` w PATH = zakladamy inference na CPU, VRAM=0). AMD/Intel GPU nie sa jeszcze obslugiwane.
+- `/models` dokłada pole `hardware: {status, powod}` per model. Rozmiar modelu brany jest w pierwszej kolejnosci z `client.list()` Ollamy (dokladny, w bajtach), a jesli model nie jest jeszcze pobrany — parsowany z kolumny `size` w CSV (np. `"5.5GB"`).
+- Statusy: `bezpieczny` (miesci sie w wolnym VRAM z 20% zapasu), `ryzykowny` (miesci sie w RAM+VRAM lacznie, ale czesc pojdzie na CPU — wolniej), `za_duzy` (przekracza dostepna pamiec), `nieznany` (nie udalo sie ustalic rozmiaru).
+- UI pokazuje pasek `RAM: x/y GB wolne · VRAM: x/y GB wolne` w headerze, symbol statusu (`✓`/`⚠`/`✗`/`?`) przy kazdym modelu w dropdownie, oraz pelny opis pod selectem.
+- `POST /models/refresh-capabilities` czysci teraz rowniez cache rozmiarow (nie tylko capabilities).
+
 ## 🔧 Częste problemy
 
 - **`pip` nie działa mimo aktywnego venv:** użyj `python -m pip ...`

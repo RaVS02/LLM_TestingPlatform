@@ -42,6 +42,41 @@ def clear_capabilities_cache():
     _capabilities_cache.clear()
 
 
+_size_cache: dict = {}
+
+
+def get_model_size_bytes(model_name: str, refresh: bool = False):
+    """Dokladny rozmiar juz sciagnietego modelu (bajty), z `client.list()`.
+    Zwraca None jesli model nie jest jeszcze pobrany / Ollama niedostepna -
+    wtedy wywolujacy powinien spasc na rozmiar z CSV jako przyblizenie."""
+    if not refresh and model_name in _size_cache:
+        return _size_cache[model_name]
+    try:
+        odpowiedz = client.list()
+    except Exception:
+        return None
+
+    lista = getattr(odpowiedz, "models", None)
+    if lista is None and isinstance(odpowiedz, dict):
+        lista = odpowiedz.get("models", [])
+
+    for pozycja in (lista or []):
+        nazwa = getattr(pozycja, "model", None)
+        if nazwa is None and isinstance(pozycja, dict):
+            nazwa = pozycja.get("model")
+        rozmiar = getattr(pozycja, "size", None)
+        if rozmiar is None and isinstance(pozycja, dict):
+            rozmiar = pozycja.get("size")
+        if nazwa == model_name and rozmiar:
+            _size_cache[model_name] = int(rozmiar)
+            return int(rozmiar)
+    return None
+
+
+def clear_size_cache():
+    _size_cache.clear()
+
+
 def _wywolaj(model_name, messages, temperature, top_p, max_tokens, ctx_len=4096):
     try:
         response = client.chat(

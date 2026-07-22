@@ -3,3 +3,4 @@ model_id,model_name,size,description
 2,qwen2.5vl:7b,6GB,"Bardzo dobry w OCR i szczegolach technicznych"
 3,medgemma1.5,7GB,"Dobre wyniki, ale w odpowiedzi potrafi ujawnic wewnetrzny tok myslenia (<unused94>thought)"
 4,glm-ocr,2.2GB,"testowy model"
+5,smollm:1.7b,0.9,"Ekstremalnie lekki model bazowy,bez vision-do testow"

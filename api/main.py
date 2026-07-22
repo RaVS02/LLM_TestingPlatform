@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from funkcje import load_models, create_raport
-from api.services import ollama_service, hf_service
+from api.services import ollama_service, hf_service, system_service
 
 app = FastAPI(title="LLM Vision Tests API")
 
@@ -39,24 +39,41 @@ def get_models(backend: str):
         raise HTTPException(404, str(e))
 
     rekordy = df.to_dict(orient="records")
+    zasoby = system_service.get_system_resources()
 
     if backend == "ollama":
         for rekord in rekordy:
             rekord["capabilities"] = ollama_service.get_capabilities(rekord["model_name"])
+            rozmiar_bajty = ollama_service.get_model_size_bytes(rekord["model_name"])
+            if rozmiar_bajty is None:
+                # Model jeszcze nie pobrany (albo Ollama chwilowo niedostepna) -
+                # przyblizamy na podstawie kolumny "size" w CSV.
+                rozmiar_bajty = system_service.parsuj_rozmiar_do_bajtow(rekord.get("size"))
+            rekord["hardware"] = system_service.ocen_ryzyko(rozmiar_bajty, zasoby)
     else:
         # Pipeline'y HF w tym projekcie sa na sztywno "image-text-to-text" (hf_service.py),
         # wiec zakladamy vision - transformers nie ma odpowiednika /api/show do sprawdzenia tego.
         for rekord in rekordy:
             rekord["capabilities"] = ["vision"]
+            rozmiar_bajty = system_service.parsuj_rozmiar_do_bajtow(rekord.get("size"))
+            rekord["hardware"] = system_service.ocen_ryzyko(rozmiar_bajty, zasoby)
 
     return rekordy
 
 
+@app.get("/system/resources")
+def system_resources():
+    """RAM/VRAM aktualnie dostepne na maszynie hostujacej API - do wyswietlenia
+    w UI oraz jako baza do oceny ryzyka per model w /models."""
+    return system_service.get_system_resources()
+
+
 @app.post("/models/refresh-capabilities")
 def refresh_capabilities():
-    """Czysci cache capabilities Ollamy - przydatne po `ollama pull` nowego modelu
-    albo po zmianie CSV bez restartu API."""
+    """Czysci cache capabilities i rozmiarow Ollamy - przydatne po `ollama pull`
+    nowego modelu albo po zmianie CSV bez restartu API."""
     ollama_service.clear_capabilities_cache()
+    ollama_service.clear_size_cache()
     return {"status": "ok"}
 
 

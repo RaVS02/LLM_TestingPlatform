@@ -121,6 +121,7 @@
   <span class="mark">◎ VISION LAB</span>
   <h1>Test modeli LLM do opisu zdjęć</h1>
   <span class="sub">ollama / huggingface — lokalnie</span>
+  <span class="sub" id="resourceBar" style="margin-left:auto; font-family:var(--mono);">Zasoby: ładowanie…</span>
 </header>
 
 <div class="layout">
@@ -225,18 +226,44 @@ function skrotyCapabilities(capabilities) {
   return capabilities.map(c => CAPABILITY_SKROTY[c] || c[0].toUpperCase()).join("");
 }
 
+const HARDWARE_KOLOR = { bezpieczny: "#4caf7d", ryzykowny: "var(--warn)", za_duzy: "#e5484d", nieznany: "var(--muted)" };
+const HARDWARE_ETYKIETA = { bezpieczny: "✓ bezpieczny", ryzykowny: "⚠ ryzykowny", za_duzy: "✗ za duży", nieznany: "? nieznany rozmiar" };
+
 function renderCapabilitiesInfo() {
   const m = modelsData.find(x => String(x.model_id) === String(modelSelect.value));
   if (!m) { capabilitiesInfo.textContent = ""; return; }
   const caps = m.capabilities || [];
+  const hw = m.hardware || { status: "nieznany", powod: "" };
+  let capsLinia;
   if (caps.length === 0) {
-    capabilitiesInfo.innerHTML = `<span style="color:var(--warn)">Brak danych o capabilities (model nieznany Ollamie / niepobrany?)</span>`;
+    capsLinia = `<span style="color:var(--warn)">Brak danych o capabilities (model nieznany Ollamie / niepobrany?)</span>`;
   } else if (!caps.includes("vision")) {
-    capabilitiesInfo.innerHTML = `<span style="color:var(--warn)">⚠ Ten model NIE ma capability "vision" (ma: ${caps.join(", ")}) — z obrazem prawdopodobnie zwróci błąd albo pustą odpowiedź.</span>`;
+    capsLinia = `<span style="color:var(--warn)">⚠ Ten model NIE ma capability "vision" (ma: ${caps.join(", ")}) — z obrazem prawdopodobnie zwróci błąd albo pustą odpowiedź.</span>`;
   } else {
-    capabilitiesInfo.textContent = `Capabilities: ${caps.join(", ")}`;
+    capsLinia = `Capabilities: ${caps.join(", ")}`;
+  }
+  const hwLinia = `<span style="color:${HARDWARE_KOLOR[hw.status] || "var(--muted)"}">${HARDWARE_ETYKIETA[hw.status] || hw.status}${hw.powod ? " — " + hw.powod : ""}</span>`;
+  capabilitiesInfo.innerHTML = `${capsLinia}<br>${hwLinia}`;
+}
+
+async function loadResourceBar() {
+  const resourceBar = document.getElementById("resourceBar");
+  try {
+    const res = await fetch("/system/resources");
+    const r = await res.json();
+    const gb = (b) => (b / 1024 ** 3).toFixed(1);
+    let tekst = `RAM: ${gb(r.ram_available)} / ${gb(r.ram_total)} GB wolne`;
+    if (r.gpu_count > 0) {
+      tekst += ` · VRAM: ${gb(r.vram_available)} / ${gb(r.vram_total)} GB wolne (${r.gpu_count} GPU)`;
+    } else {
+      tekst += ` · brak wykrytego GPU (nvidia-smi) — inference na CPU`;
+    }
+    resourceBar.textContent = tekst;
+  } catch (e) {
+    resourceBar.textContent = "Zasoby: nie udało się pobrać";
   }
 }
+loadResourceBar();
 
 async function loadModels() {
   modelSelect.innerHTML = "<option>Ładowanie…</option>";
@@ -250,9 +277,11 @@ async function loadModels() {
       return;
     }
     modelsData = data;
-    modelSelect.innerHTML = data.map(m =>
-      `<option value="${m.model_id}">[${skrotyCapabilities(m.capabilities)}] ${m.model_name} — ${m.size || ""} — ${m.description || ""}</option>`
-    ).join("");
+    const HW_SYMBOL = { bezpieczny: "✓", ryzykowny: "⚠", za_duzy: "✗", nieznany: "?" };
+    modelSelect.innerHTML = data.map(m => {
+      const hwSym = HW_SYMBOL[(m.hardware || {}).status] || "?";
+      return `<option value="${m.model_id}">${hwSym} [${skrotyCapabilities(m.capabilities)}] ${m.model_name} — ${m.size || ""} — ${m.description || ""}</option>`;
+    }).join("");
     renderCapabilitiesInfo();
   } catch (e) {
     modelsData = [];
