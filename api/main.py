@@ -37,7 +37,27 @@ def get_models(backend: str):
         df = load_models(CSV_BACKEND[backend])
     except FileNotFoundError as e:
         raise HTTPException(404, str(e))
-    return df.to_dict(orient="records")
+
+    rekordy = df.to_dict(orient="records")
+
+    if backend == "ollama":
+        for rekord in rekordy:
+            rekord["capabilities"] = ollama_service.get_capabilities(rekord["model_name"])
+    else:
+        # Pipeline'y HF w tym projekcie sa na sztywno "image-text-to-text" (hf_service.py),
+        # wiec zakladamy vision - transformers nie ma odpowiednika /api/show do sprawdzenia tego.
+        for rekord in rekordy:
+            rekord["capabilities"] = ["vision"]
+
+    return rekordy
+
+
+@app.post("/models/refresh-capabilities")
+def refresh_capabilities():
+    """Czysci cache capabilities Ollamy - przydatne po `ollama pull` nowego modelu
+    albo po zmianie CSV bez restartu API."""
+    ollama_service.clear_capabilities_cache()
+    return {"status": "ok"}
 
 
 import math

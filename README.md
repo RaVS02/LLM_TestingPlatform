@@ -134,9 +134,12 @@ Modele HuggingFace analogicznie w `llm_models/hf_models.csv` — pobierają się
 
 Pełna dokumentacja (Swagger): `http://localhost:8000/docs`
 
-- `GET /models?backend=ollama|hf` — lista modeli z CSV
-- `POST /generate` — generowanie opisu (`backend`, `model_id`, `system_prompt`, `user_prompt`, `temperature`, `top_p`, `max_tokens`, `ctx_len` — tylko Ollama, `images` — jeden lub wiele plików, przetwarzane sekwencyjnie)
+- `GET /models?backend=ollama|hf` — lista modeli z CSV, wzbogacona o `capabilities` (dla Ollamy pobrane z `/api/show`, cache'owane w pamieci; dla HF na sztywno `["vision"]`)
+- `POST /models/refresh-capabilities` — czysci cache capabilities (przydatne po `ollama pull` nowego modelu bez restartu API)
+- `POST /generate` — generowanie opisu (`backend`, `model_id`, `system_prompt`, `user_prompt`, `temperature`, `top_p`, `max_tokens`, `ctx_len` — tylko Ollama, `images` — jeden lub wiele plików, przetwarzane sekwencyjnie). Dla Ollamy odrzuca zapytanie wczesniej (bez wywolywania modelu), jesli model nie ma capability `vision`.
 - `GET /raport` — historia z `raports/raport.csv`
+
+**Wykrywanie capabilities (Ollama):** UI pokazuje przy kazdym modelu skrot capabilities w nawiasach kwadratowych (np. `[VC]` = vision + completion, `[CT]` = completion + tools, `[CTh]` = completion + thinking). Jesli wybierzesz model bez `vision` i podepniesz zdjecie, appka poprosi o potwierdzenie zanim wyśle zapytanie (bo najprawdopodobniej zwroci blad/pusta odpowiedz).
 
 ## 🔧 Częste problemy
 

@@ -136,6 +136,7 @@
     <div class="field">
       <label>Model</label>
       <select id="modelSelect"></select>
+      <div id="capabilitiesInfo" style="font-family:var(--mono); font-size:11px; color:var(--muted); margin-top:4px;"></div>
     </div>
 
     <div class="field">
@@ -209,27 +210,57 @@ let backend = "ollama";
 let selectedFiles = [];
 
 const modelSelect = document.getElementById("modelSelect");
+const capabilitiesInfo = document.getElementById("capabilitiesInfo");
 const fileChips = document.getElementById("fileChips");
 const resultsView = document.getElementById("resultsView");
 const historyView = document.getElementById("historyView");
 const submitBtn = document.getElementById("submitBtn");
 
+let modelsData = [];
+
+const CAPABILITY_SKROTY = { vision: "V", tools: "T", completion: "C", thinking: "Th", embedding: "E", insert: "I" };
+
+function skrotyCapabilities(capabilities) {
+  if (!capabilities || capabilities.length === 0) return "?";
+  return capabilities.map(c => CAPABILITY_SKROTY[c] || c[0].toUpperCase()).join("");
+}
+
+function renderCapabilitiesInfo() {
+  const m = modelsData.find(x => String(x.model_id) === String(modelSelect.value));
+  if (!m) { capabilitiesInfo.textContent = ""; return; }
+  const caps = m.capabilities || [];
+  if (caps.length === 0) {
+    capabilitiesInfo.innerHTML = `<span style="color:var(--warn)">Brak danych o capabilities (model nieznany Ollamie / niepobrany?)</span>`;
+  } else if (!caps.includes("vision")) {
+    capabilitiesInfo.innerHTML = `<span style="color:var(--warn)">⚠ Ten model NIE ma capability "vision" (ma: ${caps.join(", ")}) — z obrazem prawdopodobnie zwróci błąd albo pustą odpowiedź.</span>`;
+  } else {
+    capabilitiesInfo.textContent = `Capabilities: ${caps.join(", ")}`;
+  }
+}
+
 async function loadModels() {
   modelSelect.innerHTML = "<option>Ładowanie…</option>";
+  capabilitiesInfo.textContent = "";
   try {
     const res = await fetch(`/models?backend=${backend}`);
     const data = await res.json();
     if (!Array.isArray(data) || data.length === 0) {
+      modelsData = [];
       modelSelect.innerHTML = "<option value=''>Brak modeli w konfiguracji</option>";
       return;
     }
+    modelsData = data;
     modelSelect.innerHTML = data.map(m =>
-      `<option value="${m.model_id}">${m.model_name} — ${m.size || ""} — ${m.description || ""}</option>`
+      `<option value="${m.model_id}">[${skrotyCapabilities(m.capabilities)}] ${m.model_name} — ${m.size || ""} — ${m.description || ""}</option>`
     ).join("");
+    renderCapabilitiesInfo();
   } catch (e) {
+    modelsData = [];
     modelSelect.innerHTML = "<option value=''>Błąd ładowania modeli</option>";
   }
 }
+
+modelSelect.addEventListener("change", renderCapabilitiesInfo);
 
 document.querySelectorAll(".toggle-btn").forEach(btn => {
   btn.addEventListener("click", () => {
@@ -326,6 +357,16 @@ async function loadHistory() {
 submitBtn.addEventListener("click", async () => {
   if (!selectedFiles.length) { alert("Wybierz co najmniej jedno zdjęcie."); return; }
   if (!modelSelect.value) { alert("Wybierz model."); return; }
+
+  const wybranyModel = modelsData.find(m => String(m.model_id) === String(modelSelect.value));
+  const caps = wybranyModel ? (wybranyModel.capabilities || []) : [];
+  if (caps.length > 0 && !caps.includes("vision")) {
+    const kontynuowac = confirm(
+      `Model "${wybranyModel.model_name}" nie ma capability "vision" (ma: ${caps.join(", ")}).\n` +
+      `Prawdopodobnie zwróci błąd dla każdego zdjęcia. Kontynuować mimo to?`
+    );
+    if (!kontynuowac) return;
+  }
 
   submitBtn.disabled = true;
   submitBtn.textContent = "Analizuję…";
